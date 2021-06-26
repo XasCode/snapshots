@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "@jahed/terraform": "^1.0.0",
+    "terrafile": "^0.1.12"
+  },
+  "scripts": {
+    "terrafile": "terrafile install",
+    "plan": "terraform plan"
+  }
+}
