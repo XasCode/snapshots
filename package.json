@@ -9,7 +9,7 @@
     "clean-terraform": "cd terraform && rm -Rf vendor",
     "build-terraform": "cd terraform && terrafile install",
     "clean": "npm run clean-zip && npm run clean-terraform",
-    "build": "npm run build-zip && npm run build-terraform",
+    "build": "npm run build-terraform",
     "init": "cd terraform && terraform init",
     "plan": "cd terraform && terraform plan",
     "terrafile": "npm run clean && npm run build",
