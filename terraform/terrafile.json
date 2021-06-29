@@ -1,6 +1,6 @@
 {
   "project": {
     "comment": "https://github.com/XasCode/tf_modules/project.git",
-    "source": "../tf_modules/project"
+    "source": "../../tf_modules/project"
   }
 }

@@ -1,10 +1,18 @@
 {
-  "devDependencies": {
-    "@jahed/terraform": "^1.0.0",
-    "terrafile": "^0.1.12"
+  "devDependencies":{
+    "@jahed/terraform":"^1.0.1",
+    "terrafile":"^0.1.12"
   },
-  "scripts": {
-    "terrafile": "terrafile install",
-    "plan": "terraform plan"
+  "scripts":{
+    "clean-zip": "cd terraform && rm -f snapshots.zip",
+    "build-zip": "git archive --format=zip -o terraform/snapshots.zip HEAD:src/",
+    "clean-terraform": "cd terraform && rm -Rf vendor",
+    "build-terraform": "cd terraform && terrafile install",
+    "clean": "npm run clean-zip && npm run clean-terraform",
+    "build": "npm run build-zip && npm run build-terraform",
+    "init": "cd terraform && terraform init",
+    "plan": "cd terraform && terraform plan",
+    "terrafile": "npm run clean && npm run build",
+    "all": "npm run terrafile && npm run init && run plan"
   }
 }

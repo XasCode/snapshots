@@ -13,3 +13,15 @@ variable "billing_account" {
 variable "environment" {
   type = string
 }
+
+variable "project_path" {
+  type = string
+}
+
+variable "sg" {
+  type = string
+}
+
+variable "src_zip" {
+  type = string
+}
