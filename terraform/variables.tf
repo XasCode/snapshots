@@ -22,6 +22,6 @@ variable "sg" {
   type = string
 }
 
-variable "src_zip" {
-  type = string
-}
+#variable "src_zip" {
+#  type = string
+#}

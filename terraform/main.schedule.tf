@@ -1,11 +1,10 @@
 resource "google_pubsub_topic" "pubsub-snapshots" {
-  name = "pubsub-${module.snapshots.name}-${random_id.random.hex}"
-  project = module.snapshots.id
-  depends_on = [module.snapshots]
+  name = "pubsub-${local.project.name}-${random_id.random.hex}"
+  project = local.project.id
 }
 
 resource "google_app_engine_application" "app" {
-  project     = module.snapshots.id
+  project     = local.project.id
   location_id = "us-east1"
   depends_on = [
     google_project_service.app_engine
@@ -13,11 +12,11 @@ resource "google_app_engine_application" "app" {
 }
 
 resource "google_cloud_scheduler_job" "scheduler-job-snapshots" {
-  name        = "scheduler-job-${module.snapshots.name}-${random_id.random.hex}"
-  description = "scheduler-job-${module.snapshots.name}-${random_id.random.hex}"
+  name        = "scheduler-job-${local.project.name}-${random_id.random.hex}"
+  description = "scheduler-job-${local.project.name}-${random_id.random.hex}"
   schedule    = "0 5 * * *"
   region      = "us-east1"
-  project     = module.snapshots.id
+  project     = local.project.id
   pubsub_target {
     topic_name = google_pubsub_topic.pubsub-snapshots.id
     data = base64encode("ps-daily-5am")
@@ -37,10 +36,10 @@ resource "google_cloud_scheduler_job" "scheduler-job-snapshots" {
 }
 
 resource "google_cloudfunctions_function" "function-snapshots" {
-  name        = "function-${module.snapshots.name}-${random_id.random.hex}"
-  description = "function-${module.snapshots.name}-${random_id.random.hex}"
+  name        = "function-${local.project.name}-${random_id.random.hex}"
+  description = "function-${local.project.name}-${random_id.random.hex}"
   runtime     = "nodejs14"
-  project     = module.snapshots.id
+  project     = local.project.id
   region      = "us-east1"
   available_memory_mb   = 256
   timeout               = 60

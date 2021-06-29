@@ -13,6 +13,6 @@
     "init": "cd terraform && terraform init",
     "plan": "cd terraform && terraform plan",
     "terrafile": "npm run clean && npm run build",
-    "all": "npm run terrafile && npm run init && run plan"
+    "all": "npm run terrafile && npm run init && npm run plan"
   }
 }

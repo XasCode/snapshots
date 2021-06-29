@@ -21,13 +21,13 @@ resource "google_organization_iam_custom_role" "role-svc-check-snapshots" {
     "resourcemanager.projects.get",
     "resourcemanager.projects.list",
     "secretmanager.versions.access",
-    "secretmanager.locations.get",
-    "secretmanager.locations.list",
-    "secretmanager.secrets.get",
-    "secretmanager.secrets.getIamPolicy",
-    "secretmanager.secrets.list",
-    "secretmanager.versions.get",
-    "secretmanager.versions.list",
+#    "secretmanager.locations.get",
+#    "secretmanager.locations.list",
+#    "secretmanager.secrets.get",
+#    "secretmanager.secrets.getIamPolicy",
+#    "secretmanager.secrets.list",
+#    "secretmanager.versions.get",
+#    "secretmanager.versions.list",
     "storage.objects.create"
   ]
 }
@@ -35,5 +35,5 @@ resource "google_organization_iam_custom_role" "role-svc-check-snapshots" {
 resource "google_service_account" "svc-check-snapshots" {
   account_id   = "svc-check-snapshots-${random_id.random.hex}"
   display_name = "Service account for automatically setting up disk snapshots."
-  project      = module.snapshots.id
+  project      = local.project.id
 }

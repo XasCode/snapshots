@@ -1,6 +1,6 @@
 resource "google_secret_manager_secret" "secret-basic" {
   secret_id = "SENDGRID_API_KEY"
-  project = module.snapshots.id
+  project = local.project.id
   replication {
     automatic = true
   }

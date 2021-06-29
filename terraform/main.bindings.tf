@@ -1,5 +1,5 @@
 resource "google_project_iam_binding" "project" {
-  project = module.snapshots.id
+  project = local.project.id
   role    = google_organization_iam_custom_role.role-svc-check-snapshots.name
   members = [
     "serviceAccount:${google_service_account.svc-check-snapshots.email}",
@@ -7,7 +7,7 @@ resource "google_project_iam_binding" "project" {
 }
 
 resource "google_secret_manager_secret_iam_binding" "binding" {
-  project = module.snapshots.id
+  project = local.project.id
   secret_id = google_secret_manager_secret.secret-basic.id
   role = google_organization_iam_custom_role.role-svc-check-snapshots.name
   members = [
