@@ -16,24 +16,11 @@ exports.helloPubSub = async (event, _context) => {
     : `Inventory disks, check for backup schedules, and create a default schedule if required.`;
   console.log(message);
 
-  async function getProjectNumber() {
-    const compute = new Compute();
-    const thisPrj = compute.project();
-    const prjData = await thisPrj.get();
-    console.log(`${JSON.stringify(prjData[0].metadata)}`);
-    const prj = prjData[0].metadata.defaultServiceAccount.split('-')[0];
-    console.log(`${JSON.stringify(prj)}`);
-    return prj;
-  }
-
   async function getProjectId() {
     const compute = new Compute();
     const thisPrj = compute.project();
     const prjData = await thisPrj.get();
-    console.log(`${JSON.stringify(prjData[0].metadata)}`);
-    const prj = prjData[0].metadata.name;
-    console.log(`${JSON.stringify(prj)}`);
-    return prj;
+    return prjData[0].metadata.name;
   }
 
   // Fn to get full region url from short name
@@ -110,7 +97,7 @@ exports.helloPubSub = async (event, _context) => {
   // Convert our project disk inventory from map to list, and add project field
   async function getActiveProjectDiskInventoryDetails(project) {  
     if (project.metadata.lifecycleState == 'ACTIVE') {
-      const d = await getProjectDiskInventoryDetails(project.id);
+      const d = getProjectDiskInventoryDetails(project.id);
       return Object.keys(d).map(curr => ({
         project: project.id,
         id: curr.slice(-40), 
@@ -134,16 +121,16 @@ exports.helloPubSub = async (event, _context) => {
   // Consolidate inventories from each project into one list
   // return both the full list and a list of disks missing a backup policy
   async function getAllActiveProjectDiskInventoryDetails() {
-    const disk_inventory_details = [];
-    const projects = await getProjects();
+    const disk_inv_details = [];
+    const projects = getProjects();
     
-    for (let count=0; count < projects.length; count++) {
-      disk_inventory_details.push(...(await getActiveProjectDiskInventoryDetails(projects[count])));
+    for (const project of projects) {
+      disk_inv_details.push(...(getActiveProjectDiskInventoryDetails(project)));
     }
 
     return {
-      disk_inventory_details,
-      disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length))
+      disk_inv_details,
+      disks_missing_policies: disk_inv_details.filter(curr => (!curr.policies.length))
     };
   }
 
@@ -157,29 +144,28 @@ exports.helloPubSub = async (event, _context) => {
 
   // Generate the filename from the timestamp
   function getObjectFilename() {
-    const filename = `${getTimeStamp()}.json`;
-    return filename;
+    return `${getTimeStamp()}.json`;
   }
 
   // Save some JSON (our disk inventory) to the specified filename
-  async function savDiskInventoryToObject(diskInventory, filename) {
+  async function savDiskInventoryToObject(diskInventory, filenameArg) {
     const storage = new Storage();
-    const project_id = await getProjectId();
+    const project_id = getProjectId();
     const bucketname = `backup_records_${project_id}`;
     const myBucket = storage.bucket(bucketname);
-    const file = myBucket.file(filename);
+    const file = myBucket.file(filenameArg);
     await file.save(JSON.stringify(diskInventory, undefined, 2));  
   }
 
   // Save our disk inventory
-  async function saveDiskInventoryToTimestampFilenameObject(disk_inventory_details) {
-    const filename = getObjectFilename();
-    await savDiskInventoryToObject(disk_inventory_details, filename);
-    return filename;
+  async function saveDiskInventoryToTimestampFilenameObject(disk_inv_details) {
+    const local_filename = getObjectFilename();
+    await savDiskInventoryToObject(disk_inv_details, local_filename);
+    return local_filename;
   }
 
   // Functions for creating resource policies
-  const gcPolicy = await (async () => {
+  const gcPolicy = (async () => {
     const google_compute = google.compute('v1');
     const auth = new google.auth.GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/compute']
@@ -191,20 +177,19 @@ exports.helloPubSub = async (event, _context) => {
       exists: async (project, region, resourcePolicy) => {
         try {
           // throws if does not exist
-          const rp = await google_compute.resourcePolicies.get({
+          return await google_compute.resourcePolicies.get({
             project,
             region,
             resourcePolicy,
             auth: authClient,
         });
-          return rp;
         } catch(err) {
           return false;
         }
       },
       // Create a resourcePolicy
       create: async (name, project, region, rgn) => (
-        await google_compute.resourcePolicies.insert({
+        google_compute.resourcePolicies.insert({
           project: project,
           region: region,
           auth: authClient,
@@ -249,7 +234,7 @@ exports.helloPubSub = async (event, _context) => {
   })();
 
   // Create a default resource policy but only once
-  const createUniquePolicy = await (async () => { 
+  const createUniquePolicy = (() => { 
     const added = [];
     
     return async (def_policy_name, projectId, shortRegion, longRegion) => {
@@ -271,10 +256,9 @@ exports.helloPubSub = async (event, _context) => {
 
   // Create a default policy if it doesn't exist
   async function ensureDefaultPolicyExists(shortRegion, longRegion, projectId, def_policy_name) {
-    const dp = await defaultPolicyExists(shortRegion, projectId, def_policy_name)
+    const dp = defaultPolicyExists(shortRegion, projectId, def_policy_name)
     if (!dp) {
-      const new_dp = await createUniquePolicy(def_policy_name, projectId, shortRegion, longRegion);
-      return new_dp;
+      return createUniquePolicy(def_policy_name, projectId, shortRegion, longRegion);
     }
     return dp;
   }
@@ -283,24 +267,23 @@ exports.helloPubSub = async (event, _context) => {
   async function attachDefaultPolicyToDisk(inventory_entry) {
     if (inventory_entry.disk && inventory_entry.diskZone) {
       const shortRegion = inventory_entry.diskZone.slice(0,-2)
-      const longRegion = await getRegion(shortRegion);
+      const longRegion = getRegion(shortRegion);
       const def_policy_name = `default-${shortRegion}-backups`;
-      const dp = await ensureDefaultPolicyExists(shortRegion, longRegion, inventory_entry.project, def_policy_name)
+      const dp = ensureDefaultPolicyExists(shortRegion, longRegion, inventory_entry.project, def_policy_name)
       if (dp) {
-        const attached = await gcPolicy.attachToDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
-        return attached;
+        return gcPolicy.attachToDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
       }
     }
-    false;
+    return false;
   }
 
   // For all disks missing a backup policy, create a default policy if it doesn't exist and attach it to the disk
-  async function attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies) {
+  async function attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_pols) {
     const defaultPolicyCreated = [];
-    for (let index = 0; index < disks_missing_policies.length; index++) {
-      const inventory_entry = disks_missing_policies[index];
-      const attached = await attachDefaultPolicyToDisk(inventory_entry);
-      if (attached) defaultPolicyCreated.push(attached);
+    for (const disk_missing_pols of disks_missing_pols) {
+      const inventory_entry = disk_missing_pols;
+      const local_attached = attachDefaultPolicyToDisk(inventory_entry);
+      if (local_attached) defaultPolicyCreated.push(local_attached);
     }
     return defaultPolicyCreated;
   }
@@ -363,14 +346,14 @@ exports.helloPubSub = async (event, _context) => {
 
   async function getApiKey() {
     const secretManagerServiceClient = new SecretManagerServiceClient();
-    const project_id = await getProjectId();
+    const project_id = getProjectId();
     const name = `projects/${project_id}/secrets/SENDGRID_API_KEY/versions/latest`;
     const [version] = await secretManagerServiceClient.accessSecretVersion({ name });
     return version.payload.data.toString();
   };
       
 // Send email
-  async function sendEmail(html_content) {
+  async function sendEmail(html_content_arg) {
     const sgMail = require('@sendgrid/mail');
     
     if (true) {
@@ -379,9 +362,9 @@ exports.helloPubSub = async (event, _context) => {
           to: 'justin@staubach.us',
           from: 'contact@jsdevtools.com',
           subject: 'Missing Backups',
-          html: html_content 
+          html: html_content_arg 
         };
-        const sendgrid_api_key = await getApiKey();
+        const sendgrid_api_key = getApiKey();
         await sgMail.setApiKey(sendgrid_api_key);
         await sgMail.send(msg);
         console.log('Email sent');
@@ -397,11 +380,11 @@ exports.helloPubSub = async (event, _context) => {
    * Start *
    *********/
 
-  const {disk_inventory_details, disks_missing_policies} = await getAllActiveProjectDiskInventoryDetails();
+  const {disk_inventory_details, disks_missing_policies} = getAllActiveProjectDiskInventoryDetails();
 
-  const filename = await saveDiskInventoryToTimestampFilenameObject(disk_inventory_details);
+  const filename = saveDiskInventoryToTimestampFilenameObject(disk_inventory_details);
 
-  const attached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
+  const attached = attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
   
   const html_content = html
     .addParagraph(`Saved full disk inventory to: ${filename}`)
