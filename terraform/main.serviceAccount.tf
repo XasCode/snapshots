@@ -37,3 +37,11 @@ resource "google_service_account" "svc-check-snapshots" {
   display_name = "Service account for automatically setting up disk snapshots."
   project      = local.project.id
 }
+
+resource "google_organization_iam_binding" "organization" {
+  org_id  = "your-organization-id"
+  role    = google_organization_iam_custom_role.role-svc-check-snapshots.name
+  members = [
+    "serviceAccount:${google_service_account.svc-check-snapshots.email}",
+  ]
+}

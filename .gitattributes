@@ -1,0 +1,2 @@
+*.zip -crlf -diff -merge
+* text eol=lf
