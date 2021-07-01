@@ -38,8 +38,8 @@ resource "google_service_account" "svc-check-snapshots" {
   project      = local.project.id
 }
 
-resource "google_organization_iam_binding" "organization" {
-  org_id  = var.organization_id
+resource "google_folder_iam_binding" "parent_folder" {
+  folder  = local.parent.name
   role    = google_organization_iam_custom_role.role-svc-check-snapshots.name
   members = [
     "serviceAccount:${google_service_account.svc-check-snapshots.email}",
