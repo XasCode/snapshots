@@ -13,3 +13,7 @@ variable "project_path" {
 variable "sg" {
   type = string
 }
+
+variable "parent" {
+  type = string
+}
