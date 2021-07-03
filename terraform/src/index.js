@@ -319,7 +319,7 @@ exports.helloPubSub = async (event, _context) => {
   async function detachDefaultPolicyFromDisk(inventory_entry) {
     if (inventory_entry.disk && inventory_entry.diskZone) {
       const shortRegion = inventory_entry.diskZone.slice(0,-2);
-      const longRegion = await getRegioin(shortRegion);
+      const longRegion = await getRegion(shortRegion);
       const def_policy_name = `default-${shortRegion}-backups`;
       const dp = await getDefaultPolicy(shortRegion, longRegion, inventory_entry.project, def_policy_name);
       if (dp) {
