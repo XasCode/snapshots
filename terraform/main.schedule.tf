@@ -19,7 +19,7 @@ resource "google_cloud_scheduler_job" "scheduler-job-snapshots" {
   project     = local.project.id
   pubsub_target {
     topic_name = google_pubsub_topic.pubsub-snapshots.id
-    data = base64encode("{\"daysInCycle\": 1, \"startTime\": \"00:00\", \"maxRetentionDays\": 5, \"storageLocations\": [\"us\"]}")
+    data = base64encode("{\"daysInCycle\": 1, \"startTime\": \"00:00\", \"maxRetentionDays\": 6, \"storageLocations\": [\"us\"]}")
   }
   retry_config {
     retry_count = 0
