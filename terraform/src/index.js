@@ -135,7 +135,23 @@ exports.helloPubSub = async (event, _context) => {
 
     return {
       disk_inventory_details,
-      disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length))
+      disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length)),
+      disks_with_shorter_default_policies: disk_inventory_details.filter(curr => {
+        if (curr.policies.length) {
+          for (let i = 0; i < curr.policies.length; i++) {
+            if (curr.policies[i]?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
+              const splitDefault = curr.policies[i].name.split('default-');
+              const splitBackups = curr.policies[i].name.split('-backups');
+              const startsWithDefault = splitDefault.length === 2 && splitDefault[0] === "" ? true : false;
+              const endsWithBackups = splitBackups.length === 2 && splitBackups[1] === "" ? true : false;
+              if (startsWithDefault && endsWithBackups) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      })
     };
   }
 
@@ -179,7 +195,7 @@ exports.helloPubSub = async (event, _context) => {
     const authClient = await auth.getClient();
 
     return {
-      // Check if a resorucePolicy exists
+      // Check if a resourcePolicy exists
       exists: async (project, region, resourcePolicy) => {
         try {
           // throws if does not exist
@@ -188,7 +204,7 @@ exports.helloPubSub = async (event, _context) => {
             region,
             resourcePolicy,
             auth: authClient,
-        });
+          });
           return rp;
         } catch(err) {
           return false;
@@ -281,7 +297,7 @@ exports.helloPubSub = async (event, _context) => {
         return attached;
       }
     }
-    false;
+    return false;
   }
 
   // For all disks missing a backup policy, create a default policy if it doesn't exist and attach it to the disk
@@ -293,6 +309,11 @@ exports.helloPubSub = async (event, _context) => {
       if (attached) defaultPolicyCreated.push(attached);
     }
     return defaultPolicyCreated;
+  }
+
+  async function attachDefaultPolicyToDisksWithShorterPolicy(disks_with_shorter_default_policies) {
+    await console.log(JSON.stringify(disks_with_shorter_default_policies));
+    return true;
   }
 
   // create an html table from a list of disks
@@ -392,6 +413,8 @@ exports.helloPubSub = async (event, _context) => {
   const filename = await saveDiskInventoryToTimestampFilenameObject(disk_inventory_details);
 
   const attached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
+
+  const updated = await attachDefaultPolicyToDisksWithShorterPolicy(disks_with_shorter_default_policies);
   
   const html_content = html
     .addParagraph(`Saved full disk inventory to: ${filename}`)
