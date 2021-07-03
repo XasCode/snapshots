@@ -18,6 +18,7 @@ exports.helloPubSub = async (event, _context) => {
   const defaultParams = JSON.parse(message);
   console.log(JSON.stringify(defaultParams));
 
+
   async function getProjectId() {
     const compute = new Compute();
     const thisPrj = compute.project();
@@ -204,18 +205,16 @@ exports.helloPubSub = async (event, _context) => {
             snapshotSchedulePolicy: {
               "schedule": {
                   "dailySchedule": {
-                  "daysInCycle": 1,
-                  "startTime": "00:00",
+                  "daysInCycle": defaultParams.daysInCycle,
+                  "startTime": defaultParams.startTime,
                 }
               },
               "retentionPolicy": {
-                "maxRetentionDays": 4,
+                "maxRetentionDays": defaultParams.maxRetentionDays,
                 "onSourceDiskDelete": "KEEP_AUTO_SNAPSHOTS"
               },
               "snapshotProperties": {
-                "storageLocations": [
-                  "us"
-                ],
+                "storageLocations": defaultParams.storageLocations,
                 "guestFlush": false
               }
             }
