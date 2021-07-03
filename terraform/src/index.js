@@ -136,22 +136,23 @@ exports.helloPubSub = async (event, _context) => {
     return {
       disk_inventory_details,
       disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length)),
-      disks_with_shorter_default_policies: disk_inventory_details.filter(curr => {
-        if (curr.policies.length) {
-          for (let i = 0; i < curr.policies.length; i++) {
-            if (curr.policies[i]?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
-              const splitDefault = curr.policies[i].name.split('default-');
-              const splitBackups = curr.policies[i].name.split('-backups');
-              const startsWithDefault = splitDefault.length === 2 && splitDefault[0] === "" ? true : false;
-              const endsWithBackups = splitBackups.length === 2 && splitBackups[1] === "" ? true : false;
-              if (startsWithDefault && endsWithBackups) {
-                return true;
-              }
-            }
-          }
-        }
-        return false;
-      })
+      disks_with_shorter_default_policies: disk_inventory_details.filter(curr => (curr.policies.length)),
+      //{
+      //  if (curr.policies.length) {
+      //    for (let i = 0; i < curr.policies.length; i++) {
+      //      if (curr.policies[i]?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
+      //        const splitDefault = curr.policies[i].name.split('default-');
+      //        const splitBackups = curr.policies[i].name.split('-backups');
+      //        const startsWithDefault = splitDefault.length === 2 && splitDefault[0] === "" ? true : false;
+      //        const endsWithBackups = splitBackups.length === 2 && splitBackups[1] === "" ? true : false;
+      //        if (startsWithDefault && endsWithBackups) {
+      //          return true;
+      //        }
+      //      }
+      //    }
+      //  }
+      //  return false;
+      //})
     };
   }
 
@@ -250,6 +251,17 @@ exports.helloPubSub = async (event, _context) => {
           }
         });
         return { project, disk, resourcePolicy };
+      },
+      detachFromDisk: async (project, zone, disk, resourcePolicy) => {
+        await google_compute.disks.removeResourcePolicies({
+          project,
+          zone,
+          disk,
+          auth: authClient,
+          resource: {
+            resourcePolicies: [resourcePolicy]
+          }
+        })
       }
     }
   })();
@@ -277,7 +289,7 @@ exports.helloPubSub = async (event, _context) => {
 
   // Create a default policy if it doesn't exist
   async function ensureDefaultPolicyExists(shortRegion, longRegion, projectId, def_policy_name) {
-    const dp = await defaultPolicyExists(shortRegion, projectId, def_policy_name)
+    const dp = await defaultPolicyExists(shortRegion, projectId, def_policy_name);
     if (!dp) {
       const new_dp = await createUniquePolicy(def_policy_name, projectId, shortRegion, longRegion);
       return new_dp;
@@ -285,16 +297,37 @@ exports.helloPubSub = async (event, _context) => {
     return dp;
   }
 
+  async function getDefaultPolicy(shortRegion, longRegion, projectId, def_policy_name) {
+    return defaultPolicyExists(shortRegion, projectId, def_policy_name);
+  }
+
   // Create a default policy if it doesn't exist and attach it to a disk
   async function attachDefaultPolicyToDisk(inventory_entry) {
     if (inventory_entry.disk && inventory_entry.diskZone) {
-      const shortRegion = inventory_entry.diskZone.slice(0,-2)
+      const shortRegion = inventory_entry.diskZone.slice(0,-2);
       const longRegion = await getRegion(shortRegion);
       const def_policy_name = `default-${shortRegion}-backups`;
-      const dp = await ensureDefaultPolicyExists(shortRegion, longRegion, inventory_entry.project, def_policy_name)
+      const dp = await ensureDefaultPolicyExists(shortRegion, longRegion, inventory_entry.project, def_policy_name);
       if (dp) {
         const attached = await gcPolicy.attachToDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
         return attached;
+      }
+    }
+    return false;
+  }
+
+  async function detachDefaultPolicyFromDisk(inventory_entry) {
+    if (inventory_entry.disk && inventory_entry.diskZone) {
+      const shortRegion = inventory_entry.diskZone.slice(0,-2);
+      const longRegion = await getRegioin(shortRegion);
+      const def_policy_name = `default-${shortRegion}-backups`;
+      const dp = await getDefaultPolicy(shortRegion, longRegion, inventory_entry.project, def_policy_name);
+      if (dp) {
+        if (dp?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
+          console.log(JSON.stringify(dp));
+          const detached = await gcPolicy.detachFromDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
+          return detached;
+        }
       }
     }
     return false;
@@ -311,9 +344,15 @@ exports.helloPubSub = async (event, _context) => {
     return defaultPolicyCreated;
   }
 
-  async function attachDefaultPolicyToDisksWithShorterPolicy(disks_with_shorter_default_policies) {
+  async function detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies) {
     await console.log(JSON.stringify(disks_with_shorter_default_policies));
-    return true;
+    const defaultPolicyDetached = [];
+    for (let index = 0; index < disks_with_shorter_default_policies.length; index++) {
+      const inventory_entry = disks_with_shorter_default_policies[index];
+      const detached = await detachDefaultPolicyFromDisk(inventory_entry);
+      if (detached) defaultPolicyDetached.push(detached);
+    }
+    return defaultPolicyDetached;
   }
 
   // create an html table from a list of disks
@@ -414,7 +453,8 @@ exports.helloPubSub = async (event, _context) => {
 
   const attached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
 
-  const updated = await attachDefaultPolicyToDisksWithShorterPolicy(disks_with_shorter_default_policies);
+  const detached = await detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies);
+  const reattached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_with_shorter_default_policies);
   
   const html_content = html
     .addParagraph(`Saved full disk inventory to: ${filename}`)
@@ -424,6 +464,8 @@ exports.helloPubSub = async (event, _context) => {
     .addTable(disk_inventory_details)
     .addParagraph(`Attached default policies:`)
     .addUnorderedList(attached)
+    .addParagraph(`Updated default policies:`)
+    .addUnorderedList(reattached)
     .join('');
 
   await sendEmail(html_content);
