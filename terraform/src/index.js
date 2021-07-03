@@ -15,6 +15,8 @@ exports.helloPubSub = async (event, _context) => {
     ? Buffer.from(event.data, 'base64').toString()
     : `Inventory disks, check for backup schedules, and create a default schedule if required.`;
   console.log(message);
+  const defaultParams = JSON.parse(message);
+  console.log(JSON.stringify(defaultParams));
 
   async function getProjectId() {
     const compute = new Compute();
