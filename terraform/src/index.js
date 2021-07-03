@@ -323,12 +323,16 @@ exports.helloPubSub = async (event, _context) => {
       const def_policy_name = `default-${shortRegion}-backups`;
       const dp = await getDefaultPolicy(shortRegion, longRegion, inventory_entry.project, def_policy_name);
       if (dp) {
+        console.log(`found ${def_policy_name}`);
         if (dp?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
+          console.log(`detaching ${def_policy_name}`);
           console.log(JSON.stringify(dp));
           const detached = await gcPolicy.detachFromDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
           return detached;
         }
+        console.log(`not detaching ${def_policy_name}`);
       }
+      console.log(`did not find ${def_policy_name}`);
     }
     return false;
   }
