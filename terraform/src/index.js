@@ -447,7 +447,7 @@ exports.helloPubSub = async (event, _context) => {
    * Start *
    *********/
 
-  const {disk_inventory_details, disks_missing_policies} = await getAllActiveProjectDiskInventoryDetails();
+  const {disk_inventory_details, disks_missing_policies, disks_with_shorter_default_policies} = await getAllActiveProjectDiskInventoryDetails();
 
   const filename = await saveDiskInventoryToTimestampFilenameObject(disk_inventory_details);
 
