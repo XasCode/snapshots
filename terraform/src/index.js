@@ -328,11 +328,10 @@ exports.helloPubSub = async (event, _context) => {
           console.log(`detaching ${def_policy_name}`);
           console.log(JSON.stringify(dp));
           const detached = await gcPolicy.detachFromDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
+          await attachDefaultPolicyToDisk(inventory_entry);
           return detached;
         }
-        console.log(`not detaching ${def_policy_name}`);
       }
-      console.log(`did not find ${def_policy_name}`);
     }
     return false;
   }
@@ -457,8 +456,7 @@ exports.helloPubSub = async (event, _context) => {
 
   const attached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
 
-  const detached = await detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies);
-  const reattached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_with_shorter_default_policies);
+  const updated = await detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies);
   
   const html_content = html
     .addParagraph(`Saved full disk inventory to: ${filename}`)
@@ -469,7 +467,7 @@ exports.helloPubSub = async (event, _context) => {
     .addParagraph(`Attached default policies:`)
     .addUnorderedList(attached)
     .addParagraph(`Updated default policies:`)
-    .addUnorderedList(reattached)
+    .addUnorderedList(updated)
     .join('');
 
   await sendEmail(html_content);
