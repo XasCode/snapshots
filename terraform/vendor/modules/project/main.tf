@@ -26,10 +26,16 @@ resource "google_project" "project" {
   depends_on = [random_id.project, module.prj_container]
 }
 
+data "google_compute_regions" "available" {
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = google_project.project[0].project_id
+}
+
 resource "google_compute_resource_policy" "auto_snapshot_policy" {
-  project = google_project.project.project_id
-  name    = "auto-us-central1-backups"
-  region  = "us-central1"
+  count   = contains(var.envs, var.environment) ? length([for x in data.google_compute_regions.available[0].names: x if substr(x, 0, 3) == "us-"]) : 0
+  project = google_project.project[0].project_id
+  name    = "auto-${[for x in data.google_compute_regions.available[0].names: x if substr(x, 0, 3) == "us-"][count.index]}-backups"
+  region  = [for x in data.google_compute_regions.available[0].names: x if substr(x, 0, 3) == "us-"][count.index]
   snapshot_schedule_policy {
     schedule {
       daily_schedule {

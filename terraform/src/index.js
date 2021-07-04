@@ -15,8 +15,6 @@ exports.helloPubSub = async (event, _context) => {
     ? Buffer.from(event.data, 'base64').toString()
     : `Inventory disks, check for backup schedules, and create a default schedule if required.`;
   console.log(message);
-  const defaultParams = JSON.parse(message);
-  console.log(JSON.stringify(defaultParams));
   
   async function getProjectId() {
     const compute = new Compute();
@@ -26,14 +24,6 @@ exports.helloPubSub = async (event, _context) => {
     const prj = prjData[0].metadata.name;
     console.log(`${JSON.stringify(prj)}`);
     return prj;
-  }
-
-  // Fn to get full region url from short name
-  async function getRegion(region_name) {
-    const compute = new Compute();
-    const regionsData = await compute.getRegions();
-    const regions = regionsData[0];
-    return regions.filter(curr => (curr.metadata.name == region_name))[0].metadata.selfLink;
   }
 
   // Our inventory object
@@ -171,177 +161,6 @@ exports.helloPubSub = async (event, _context) => {
     return filename;
   }
 
-  // Functions for creating resource policies
-  const gcPolicy = await (async () => {
-    const google_compute = google.compute('v1');
-    const auth = new google.auth.GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/compute']
-    });
-    const authClient = await auth.getClient();
-
-    return {
-      // Check if a resourcePolicy exists
-      exists: async (project, region, resourcePolicy) => {
-        try {
-          // throws if does not exist
-          const rp = await google_compute.resourcePolicies.get({
-            project,
-            region,
-            resourcePolicy,
-            auth: authClient,
-          });
-          return rp;
-        } catch(err) {
-          return false;
-        }
-      },
-      // Create a resourcePolicy
-      create: async (name, project, region, rgn) => (
-        await google_compute.resourcePolicies.insert({
-          project: project,
-          region: region,
-          auth: authClient,
-          resource: {
-            region: rgn,
-            name,
-            snapshotSchedulePolicy: {
-              "schedule": {
-                  "dailySchedule": {
-                  "daysInCycle": defaultParams.daysInCycle,
-                  "startTime": defaultParams.startTime,
-                }
-              },
-              "retentionPolicy": {
-                "maxRetentionDays": defaultParams.maxRetentionDays,
-                "onSourceDiskDelete": "KEEP_AUTO_SNAPSHOTS"
-              },
-              "snapshotProperties": {
-                "storageLocations": defaultParams.storageLocations,
-                "guestFlush": false
-              }
-            }
-          }
-        })
-      ),
-      // Attach a resourcePolicy to a disk
-      attachToDisk: async (project, zone, disk, resourcePolicy) => {
-        await google_compute.disks.addResourcePolicies({
-          project,
-          zone,
-          disk,
-          auth: authClient,
-          resource: {
-            resourcePolicies: [resourcePolicy]
-          }
-        });
-        return { project, disk, resourcePolicy };
-      },
-      detachFromDisk: async (project, zone, disk, resourcePolicy) => {
-        await google_compute.disks.removeResourcePolicies({
-          project,
-          zone,
-          disk,
-          auth: authClient,
-          resource: {
-            resourcePolicies: [resourcePolicy]
-          }
-        })
-      }
-    }
-  })();
-
-  // Create a default resource policy but only once
-  const createUniquePolicy = await (async () => { 
-    const added = [];
-    
-    return async (def_policy_name, projectId, shortRegion, longRegion) => {
-      if (!added.includes(def_policy_name)) {
-        await gcPolicy.create(def_policy_name, projectId, shortRegion, longRegion);
-        added.push(def_policy_name);
-        const dp = await gcPolicy.exists(projectId, shortRegion, def_policy_name);
-        return dp;
-      }
-      return false;
-    }
-  })()
-
-  // Check if a default policy exists
-  async function defaultPolicyExists(shortRegion, projectId, def_policy_name) {
-    const dp = await gcPolicy.exists(projectId, shortRegion, def_policy_name);
-    return dp;
-  }
-
-  // Create a default policy if it doesn't exist
-  async function ensureDefaultPolicyExists(shortRegion, longRegion, projectId, def_policy_name) {
-    const dp = await defaultPolicyExists(shortRegion, projectId, def_policy_name);
-    if (!dp) {
-      const new_dp = await createUniquePolicy(def_policy_name, projectId, shortRegion, longRegion);
-      return new_dp;
-    }
-    return dp;
-  }
-
-  async function getDefaultPolicy(shortRegion, longRegion, projectId, def_policy_name) {
-    return defaultPolicyExists(shortRegion, projectId, def_policy_name);
-  }
-
-  // Create a default policy if it doesn't exist and attach it to a disk
-  async function attachDefaultPolicyToDisk(inventory_entry) {
-    if (inventory_entry.disk && inventory_entry.diskZone) {
-      const shortRegion = inventory_entry.diskZone.slice(0,-2);
-      const longRegion = await getRegion(shortRegion);
-      const def_policy_name = `default-${shortRegion}-backups`;
-      const dp = await ensureDefaultPolicyExists(shortRegion, longRegion, inventory_entry.project, def_policy_name);
-      if (dp) {
-        const attached = await gcPolicy.attachToDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
-        return attached;
-      }
-    }
-    return false;
-  }
-
-  async function detachDefaultPolicyFromDisk(inventory_entry) {
-    if (inventory_entry.disk && inventory_entry.diskZone) {
-      const shortRegion = inventory_entry.diskZone.slice(0,-2);
-      const longRegion = await getRegion(shortRegion);
-      const def_policy_name = `default-${shortRegion}-backups`;
-      const dp = await getDefaultPolicy(shortRegion, longRegion, inventory_entry.project, def_policy_name);
-      if (dp) {
-        console.log(`found ${def_policy_name}`);
-        console.log(JSON.stringify(dp));
-        if (dp?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
-          console.log(`detaching ${def_policy_name}`);
-          const detached = await gcPolicy.detachFromDisk(inventory_entry.project, inventory_entry.diskZone, inventory_entry.disk, dp.data.selfLink);
-          await attachDefaultPolicyToDisk(inventory_entry);
-          return detached;
-        }
-      }
-    }
-    return false;
-  }
-
-  // For all disks missing a backup policy, create a default policy if it doesn't exist and attach it to the disk
-  async function attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies) {
-    const defaultPolicyCreated = [];
-    for (let index = 0; index < disks_missing_policies.length; index++) {
-      const inventory_entry = disks_missing_policies[index];
-      const attached = await attachDefaultPolicyToDisk(inventory_entry);
-      if (attached) defaultPolicyCreated.push(attached);
-    }
-    return defaultPolicyCreated;
-  }
-
-  async function detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies) {
-    await console.log(JSON.stringify(disks_with_shorter_default_policies));
-    const defaultPolicyDetached = [];
-    for (let index = 0; index < disks_with_shorter_default_policies.length; index++) {
-      const inventory_entry = disks_with_shorter_default_policies[index];
-      const detached = await detachDefaultPolicyFromDisk(inventory_entry);
-      if (detached) defaultPolicyDetached.push(detached);
-    }
-    return defaultPolicyDetached;
-  }
-
   // create an html table from a list of disks
   function createTable(disk_list) {
     return `
@@ -434,24 +253,16 @@ exports.helloPubSub = async (event, _context) => {
    * Start *
    *********/
 
-  const {disk_inventory_details, disks_missing_policies, disks_with_shorter_default_policies} = await getAllActiveProjectDiskInventoryDetails();
+  const {disk_inventory_details, disks_missing_policies} = await getAllActiveProjectDiskInventoryDetails();
 
   const filename = await saveDiskInventoryToTimestampFilenameObject(disk_inventory_details);
 
-  const attached = await attachDefaultPolicyToAllDisksMissingPolicy(disks_missing_policies);
-
-  const updated = await detachDefaultPolicyToAllDisksWithShorterDefaultPolicy(disks_with_shorter_default_policies);
-  
   const html_content = html
     .addParagraph(`Saved full disk inventory to: ${filename}`)
     .addParagraph(`Disks missing backups:`)
     .addTable(disks_missing_policies)
     .addParagraph(`All disks:`)
     .addTable(disk_inventory_details)
-    .addParagraph(`Attached default policies:`)
-    .addUnorderedList(attached)
-    .addParagraph(`Updated default policies:`)
-    .addUnorderedList(updated)
     .join('');
 
   await sendEmail(html_content);
