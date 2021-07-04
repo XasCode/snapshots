@@ -27,3 +27,18 @@ variable "envs" {
 variable "environment" {
   type = string
 }
+
+variable "snapshots" {
+  type = object({
+    days_in_cycle = number
+    start_time = string
+    max_retention_days = number
+    storage_locations = list(string)
+  })
+  default = {
+    days_in_cycle = 1
+    start_time = "00:00"
+    max_retention_days = 4
+    storage_locations = ["us"]
+  }
+}

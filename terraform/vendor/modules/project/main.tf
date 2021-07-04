@@ -25,3 +25,25 @@ resource "google_project" "project" {
 
   depends_on = [random_id.project, module.prj_container]
 }
+
+resource "google_compute_resource_policy" "auto_snapshot_policy" {
+  project = google_project.project.project_id
+  name    = "auto-us-central1-backups"
+  region  = "us-central1"
+  snapshot_schedule_policy {
+    schedule {
+      daily_schedule {
+        days_in_cycle = var.snapshots.days_in_cycle
+        start_time     = var.snapshots.start_time
+      }
+    }
+    retention_policy {
+      max_retention_days    = var.snapshots.max_retention_days
+      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+    }
+    snapshot_properties {
+      storage_locations = var.snapshots.storage_locations
+      guest_flush       = false
+    }
+  }
+}

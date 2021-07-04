@@ -137,22 +137,6 @@ exports.helloPubSub = async (event, _context) => {
       disk_inventory_details,
       disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length)),
       disks_with_shorter_default_policies: disk_inventory_details.filter(curr => (curr.policies.length)),
-      //{
-      //  if (curr.policies.length) {
-      //    for (let i = 0; i < curr.policies.length; i++) {
-      //      if (curr.policies[i]?.snapshotSchedulePolicy?.retentionPolicy?.maxRetentionDays < defaultParams.maxRetentionDays) {
-      //        const splitDefault = curr.policies[i].name.split('default-');
-      //        const splitBackups = curr.policies[i].name.split('-backups');
-      //        const startsWithDefault = splitDefault.length === 2 && splitDefault[0] === "" ? true : false;
-      //        const endsWithBackups = splitBackups.length === 2 && splitBackups[1] === "" ? true : false;
-      //        if (startsWithDefault && endsWithBackups) {
-      //          return true;
-      //        }
-      //      }
-      //    }
-      //  }
-      //  return false;
-      //})
     };
   }
 
