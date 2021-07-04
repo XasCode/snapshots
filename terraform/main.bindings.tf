@@ -23,3 +23,10 @@ resource "google_storage_bucket_iam_binding" "binding" {
   ]
 }
 
+resource "google_organization_iam_binding" "organization" {
+  org_id  = var.organization_id
+  role    = google_organization_iam_custom_role.role-svc-check-snapshots.name
+  members = [
+    "serviceAccount:${google_service_account.svc-check-snapshots.email}",
+  ]
+}
