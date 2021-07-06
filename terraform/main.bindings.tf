@@ -23,7 +23,6 @@ resource "google_storage_bucket_iam_binding" "binding" {
   ]
 }
 
-
 resource "google_folder_iam_binding" "parent_folder" {
   folder  = local.parent.name
   role    = google_organization_iam_custom_role.role-svc-check-snapshots.name

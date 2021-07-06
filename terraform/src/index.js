@@ -116,17 +116,17 @@ exports.helloPubSub = async (event, _context) => {
   // Consolidate inventories from each project into one list
   // return both the full list and a list of disks missing a backup policy
   async function getAllActiveProjectDiskInventoryDetails() {
-    const disk_inventory_details = [];
+    const local_disk_inventory_details = [];
     const projects = await getProjects();
     
     for (let count=0; count < projects.length; count++) {
-      disk_inventory_details.push(...(await getActiveProjectDiskInventoryDetails(projects[count])));
+      local_disk_inventory_details.push(...(await getActiveProjectDiskInventoryDetails(projects[count])));
     }
 
     return {
-      disk_inventory_details,
-      disks_missing_policies: disk_inventory_details.filter(curr => (!curr.policies.length)),
-      disks_with_shorter_default_policies: disk_inventory_details.filter(curr => (curr.policies.length)),
+      disk_inventory_details: local_disk_inventory_details,
+      disks_missing_policies: local_disk_inventory_details.filter(curr => (!curr.policies.length)),
+      disks_with_shorter_default_policies: local_disk_inventory_details.filter(curr => (curr.policies.length)),
     };
   }
 
@@ -140,25 +140,24 @@ exports.helloPubSub = async (event, _context) => {
 
   // Generate the filename from the timestamp
   function getObjectFilename() {
-    const filename = `${getTimeStamp()}.json`;
-    return filename;
+    return `${getTimeStamp()}.json`;
   }
 
   // Save some JSON (our disk inventory) to the specified filename
-  async function savDiskInventoryToObject(diskInventory, filename) {
+  async function savDiskInventoryToObject(diskInventory, arg_filename) {
     const storage = new Storage();
     const project_id = await getProjectId();
     const bucketname = `backup_records_${project_id}`;
     const myBucket = storage.bucket(bucketname);
-    const file = myBucket.file(filename);
+    const file = myBucket.file(arg_filename);
     await file.save(JSON.stringify(diskInventory, undefined, 2));  
   }
 
   // Save our disk inventory
-  async function saveDiskInventoryToTimestampFilenameObject(disk_inventory_details) {
-    const filename = getObjectFilename();
-    await savDiskInventoryToObject(disk_inventory_details, filename);
-    return filename;
+  async function saveDiskInventoryToTimestampFilenameObject(disk_inv_details) {
+    const local_filename = getObjectFilename();
+    await savDiskInventoryToObject(disk_inv_details, local_filename);
+    return local_filename;
   }
 
   // create an html table from a list of disks
@@ -223,10 +222,10 @@ exports.helloPubSub = async (event, _context) => {
     const name = `projects/${project_id}/secrets/SENDGRID_API_KEY/versions/latest`;
     const [version] = await secretManagerServiceClient.accessSecretVersion({ name });
     return version.payload.data.toString();
-  };
+  }
       
 // Send email
-  async function sendEmail(html_content) {
+  async function sendEmail(arg_html_content) {
     const sgMail = require('@sendgrid/mail');
     
     if (true) {
@@ -235,7 +234,7 @@ exports.helloPubSub = async (event, _context) => {
           to: 'justin@staubach.us',
           from: 'contact@jsdevtools.com',
           subject: 'Missing Backups',
-          html: html_content 
+          html: arg_html_content 
         };
         const sendgrid_api_key = await getApiKey();
         await sgMail.setApiKey(sendgrid_api_key);

@@ -1,6 +1,5 @@
 # Local .terraform directories
 **/.terraform/
-terraform.tfvars.json
 
 # .tfstate files
 *.tfstate
@@ -30,5 +29,5 @@ override.tf.json
 # example: *tfplan*
 
 remote.tf
-
+terraform.tfvars.json
 node_modules/
