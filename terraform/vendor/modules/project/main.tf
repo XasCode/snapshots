@@ -26,7 +26,9 @@ resource "google_project" "project" {
   depends_on = [random_id.project, module.prj_container]
 }
 
-##### Should move into module for resource. #####
+#######
+##### TODO: Should move into module for resource. #####
+#######
 
 #data "google_compute_regions" "available" {
 #  count   = contains(var.envs, var.environment) ? 1 : 0
