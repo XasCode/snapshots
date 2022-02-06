@@ -13,4 +13,4 @@ resource "google_storage_bucket" "backup_records" {
 //  name   = "index-${filemd5(data.archive_file.srcfiles.output_path)}.zip"
 //  bucket = google_storage_bucket.bucket.name
 //  source = data.archive_file.srcfiles.output_path
-/}
+//}
