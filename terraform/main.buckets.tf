@@ -6,6 +6,7 @@ resource "google_storage_bucket" "bucket" {
 resource "google_storage_bucket" "backup_records" {
   name = "backup_records_${local.project.id}"
   project = local.project.id
+  force_destroy = true
 }
 
 resource "google_storage_bucket_object" "archive" {
