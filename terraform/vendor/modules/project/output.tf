@@ -1,6 +1,6 @@
 output "path" {
   description = "The path of this project."
-  value = join("", [var.parent.path, var.name])
+  value = length(google_project.project) > 0 ? join("", [var.parent.path, var.name]) : ""
 }
 
 output "name" {

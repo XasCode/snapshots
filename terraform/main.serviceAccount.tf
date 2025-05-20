@@ -1,7 +1,8 @@
 resource "google_organization_iam_custom_role" "role-svc-check-snapshots" {
-  role_id     = "role_svc_check_snapshots_${random_id.random.hex}"
+  count       = contains(var.envs, var.environment) ? 1 : 0
+  role_id     = "role_svc_check_snapshots_${random_id.random[0].hex}"
   org_id      = var.organization_id
-  title       = "role_svc_check_snapshots_${random_id.random.hex}"
+  title       = "role_svc_check_snapshots_${random_id.random[0].hex}"
   description = "Role / permissions to assign to service account for automatically setting up disk snapshots."
   permissions = [
     "compute.disks.list",
@@ -33,7 +34,8 @@ resource "google_organization_iam_custom_role" "role-svc-check-snapshots" {
 }
 
 resource "google_service_account" "svc-check-snapshots" {
-  account_id   = "svc-check-snapshots-${random_id.random.hex}"
+  count        = contains(var.envs, var.environment) ? 1 : 0
+  project      = module.snapshots.id
   display_name = "Service account for automatically setting up disk snapshots."
-  project      = local.project.id
+  account_id   = "svc-check-snapshots-${random_id.random[0].hex}"
 }

@@ -1,9 +1,9 @@
 {
-  "devDependencies":{
+  "devDependencies": {
     "@jahed/terraform": "^1.1.5",
-    "terrafile": "^0.1.27"
+    "terrafile": "^0.1.28"
   },
-  "scripts":{
+  "scripts": {
     "clean-zip": "cd terraform && rm -f snapshots.zip",
     "build-zip": "git archive --format=zip -o terraform/snapshots.zip HEAD:src/",
     "clean-terraform": "cd terraform && rm -Rf vendor",

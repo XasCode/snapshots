@@ -1,5 +1,6 @@
 resource "google_project_service" "cloud_scheduler" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "cloudscheduler.googleapis.com"
   timeouts {
     create = "3m"
@@ -9,7 +10,8 @@ resource "google_project_service" "cloud_scheduler" {
 }
 
 resource "google_project_service" "app_engine" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "appengine.googleapis.com"
   timeouts {
     create = "3m"
@@ -19,7 +21,8 @@ resource "google_project_service" "app_engine" {
 }
 
 resource "google_project_service" "cloud_functions" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "cloudfunctions.googleapis.com"
   timeouts {
     create = "3m"
@@ -29,7 +32,8 @@ resource "google_project_service" "cloud_functions" {
 }
 
 resource "google_project_service" "cloud_build" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "cloudbuild.googleapis.com"
   timeouts {
     create = "3m"
@@ -39,7 +43,8 @@ resource "google_project_service" "cloud_build" {
 }
 
 resource "google_project_service" "cloud_resource_manager" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "cloudresourcemanager.googleapis.com"
   timeouts {
     create = "3m"
@@ -49,7 +54,8 @@ resource "google_project_service" "cloud_resource_manager" {
 }
 
 resource "google_project_service" "secretmanager" {
-  project = local.project.id
+  count   = contains(var.envs, var.environment) ? 1 : 0
+  project = module.snapshots.id
   service = "secretmanager.googleapis.com"
   timeouts {
     create = "3m"
